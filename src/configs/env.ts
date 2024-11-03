@@ -6,8 +6,10 @@ const envSchema = z.object({
   PORT: z.coerce.number(),
   WHATSAPP_VERIFY_TOKEN: z.string(),
   RABBITMQ_URL: z.string().url(),
-  RABBITMQ_SEND: z.string(),
-  RABBITMQ_RECEIVE: z.string(),
+  RABBITMQ_QUEUE: z.string(),
+  RABBITMQ_NAME: z.string(),
+  REDIS_HOST: z.string(),
+  REDIS_PORT: z.coerce.number(),
 });
 
 const _env = envSchema.safeParse(process.env);

@@ -4,27 +4,20 @@ export class Converter {
   static waToBodyDefault(dto: MetaWhatsappDto): any {
     const { entry } = dto;
 
-    if (!entry) return "finish";
     const display_phone_number = entry[0].id;
 
     const changes = entry[0].changes;
-    if (!changes) return "finish";
 
     const value = changes[0].value;
-    if (!value) return "finish";
 
     const wa_metadata = value.metadata;
     const wa_business_id = wa_metadata && wa_metadata.display_phone_number;
     const phone_number_id = wa_metadata && wa_metadata.phone_number_id;
 
     const wa_statuses = value.statuses && value.statuses[0];
-    if (wa_statuses) {
-      console.log(wa_statuses);
-      return "status";
-    }
-
     const wa_contacts = value.contacts;
     const wa_id = wa_contacts && wa_contacts[0].wa_id;
+    const wa_user_id = wa_contacts && wa_contacts[0]?.user_id;
     const wa_name = wa_contacts && wa_contacts[0].profile.name;
 
     const messages = value.messages;
@@ -65,7 +58,7 @@ export class Converter {
         phoneNumber: wa_business_id,
         phoneNumberId: phone_number_id,
       },
-      statuses: {
+      statuses: wa_statuses && {
         id: wa_statuses.id,
         status: wa_statuses.status,
         timestamp: wa_statuses.timestamp,
@@ -75,12 +68,12 @@ export class Converter {
         errors: wa_statuses.errors,
         biz_opaque_callback_data: wa_statuses.biz_opaque_callback_data,
       },
-      contact: {
+      contact: wa_contacts && {
         id: wa_id,
-        user_id: wa_contacts[0].user_id,
+        user_id: wa_user_id,
         name: wa_name,
       },
-      message: {
+      message: messages && {
         id: wa_msg_id,
         timestamp: wa_msg_timestamp,
         type: wa_msg_type,
