@@ -1,4 +1,3 @@
-import { HttpService } from "@nestjs/axios";
 import {
   BadRequestException,
   Inject,
@@ -6,6 +5,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
+import { AxiosService } from "src/providers/axios/axios.service";
 import { Converter } from "src/utils/converter.util";
 import { env } from "../../configs/env";
 import { MetaWhatsappDto } from "./dtos/meta-whatsapp.received.dto";
@@ -13,8 +13,11 @@ import { MetaWhatsappDto } from "./dtos/meta-whatsapp.received.dto";
 @Injectable()
 export class MetaWhatsappService {
   constructor(
-    @Inject(env.RABBITMQ_NAME) private readonly rabbitMQ: ClientProxy,
-    private readonly httpService: HttpService,
+    @Inject(env.RABBITMQ_NAME_CHAT)
+    private readonly rabbitMQToChat: ClientProxy,
+    @Inject(env.RABBITMQ_NAME_STATUS)
+    private readonly rabbitMQToStatus: ClientProxy,
+    private readonly axiosService: AxiosService,
   ) {}
 
   handlerValidation(mode: string, verifyToken: string, challenge: any) {
@@ -27,7 +30,7 @@ export class MetaWhatsappService {
     throw new BadRequestException();
   }
 
-  handlerWhatsapp(dto: MetaWhatsappDto) {
+  async handlerWhatsapp(dto: MetaWhatsappDto) {
     const businessAlreadyExists = true; // TODO: Validar se a empresa tem cadastro no sistema no banco de dados.
     // USAR REDIS PARA ARMAZENAR AS EMPRESAS PARA NÃO PRECISAR BUSCAR NO BANCO DE DADOS TODA HORA.
     if (!businessAlreadyExists) return;
@@ -38,7 +41,7 @@ export class MetaWhatsappService {
 
     if (converteDto.statuses !== undefined) {
       // Enviar para micro-serviço que trata/atualiza os status.
-      this.rabbitMQ.emit(env.RABBITMQ_QUEUE, {
+      this.rabbitMQToStatus.emit(env.RABBITMQ_QUEUE_STATUS, {
         provider: converteDto.provider,
         business: converteDto.business,
         statuses: converteDto.statuses,
@@ -62,18 +65,23 @@ export class MetaWhatsappService {
     // TODO: Verificar se o cliente está conversando com o chatbot ou já está com um atendente.
     const chat = "";
 
-    this.httpService
-      .post(
-        "https://graph.facebook.com/v20.0/279265205263818/messages?access_token=EAAIU7bqLvE4BOz2UPZBWji8wUS4lZCh0ZC9FYTOyj9cQoOCybacTylwbh4v76oZBTWFuQ4J9WSwk9KKkT8LRXZAqooEpuYx290EnR5TdZBPclHpq3Y2Bk7sjuIUAOZBLHyZBC8aYs4Gf8f76T1rVgk9hiFYY1ZBSQ0dfgPJe8QbPZAJd5Wt7NJhLHTwbHb2BcPzSwwSSwuZCfzVPRfKdksmpxqlCiT7WrHqppZCG82ABgZBbuwBQZD",
-        {
-          messaging_product: converteDto.provider,
-          to: converteDto.contact.id,
-          type: "text",
-          text: {
-            body: "Teste 2",
-          },
-        },
-      )
-      .subscribe((p) => console.log(p));
+    this.rabbitMQToChat.emit(env.RABBITMQ_QUEUE_CHAT, {
+      provider: converteDto.provider,
+      business: converteDto.business,
+      contact: converteDto.contact,
+      message: converteDto.message,
+    });
+
+    const url =
+      "https://graph.facebook.com/v20.0/279265205263818/messages?access_token=EAAIU7bqLvE4BO6WPCFhNheVqlOgaS0ZBPmLD2NyvJqVv4eLvOJggXzVEwBXKUHC3arWr3ZBKYi3Ky7F6Dh4WylhrQdd6DKpTz3XfwKSlyr5PZCSvZBuZAxOZC52q2PKaZBejb8JbGDZB1s9o1XFcT4rr6mEZB4KMefYf6kbUBMhgWZA3FOPfEWaGmnmZCFzHckjvanP7aJiO3cHJ3CIPalpHTsZC0bg3wCBhJPkM7ZBC4eiiwgYUZD";
+    const data = {
+      messaging_product: converteDto.provider,
+      to: converteDto.contact.id,
+      type: "text",
+      text: {
+        body: "Teste 2",
+      },
+    };
+    await this.axiosService.post(url, data);
   }
 }

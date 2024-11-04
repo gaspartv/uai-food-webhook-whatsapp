@@ -13,6 +13,20 @@ services:
     volumes:
       - postgres_data:/bitnami/postgresql
 
+  uai_food_chat_postgres:
+    container_name: uai-food-db-chat
+    image: bitnami/postgresql
+    ports:
+      - "5325:5432"
+    environment:
+      - POSTGRESQL_USERNAME=docker
+      - POSTGRESQL_PASSWORD=docker
+      - POSTGRESQL_DATABASE=uai-food-db-chat
+    networks:
+      - network_uai_food
+    volumes:
+      - postgres_data:/bitnami/postgresql
+
   uai_food_redis:
     container_name: uai-food-redis
     image: redis:7

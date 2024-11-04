@@ -6,8 +6,10 @@ const envSchema = z.object({
   PORT: z.coerce.number(),
   WHATSAPP_VERIFY_TOKEN: z.string(),
   RABBITMQ_URL: z.string().url(),
-  RABBITMQ_QUEUE: z.string(),
-  RABBITMQ_NAME: z.string(),
+  RABBITMQ_QUEUE_STATUS: z.string(),
+  RABBITMQ_QUEUE_CHAT: z.string(),
+  RABBITMQ_NAME_STATUS: z.string(),
+  RABBITMQ_NAME_CHAT: z.string(),
   REDIS_HOST: z.string(),
   REDIS_PORT: z.coerce.number(),
 });
