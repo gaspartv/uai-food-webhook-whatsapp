@@ -1,4 +1,4 @@
-import { MetaWhatsappDto } from "../modules/meta-whatsapp/dtos/meta-whatsapp.received.dto";
+import { MetaWhatsappDto } from "../providers/meta-whatsapp/dtos/meta-whatsapp.received.dto";
 
 export class Converter {
   static waToBodyDefault(dto: MetaWhatsappDto): any {

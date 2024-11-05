@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ClientSocialMediaType {
+  INSTAGRAM
+  FACEBOOK
+  WHATSAPP
+
+  @@map("client_social_media_type")
+}
+
+enum MessageType {
+  AUDIO
+  BUTTON
+  DOCUMENT
+  TEXT
+  IMAGE
+  INTERACTIVE
+  ORDER
+  STICKER
+  SYSTEM
+  UNKNOWN
+  VIDEO
+  REACTION
+  LOCATION
+
+  @@map("message_type")
+}
+
+enum MessageStatusType {
+  DELIVERED
+  SENT
+  READ
+
+  @@map("message_status_type")
+}
+
+enum ChatType {
+  WHATSAPP
+  MESSENGER
+  INSTAGRAM
+
+  @@map("chat_type")
+}
+
+model Business {
+  id         String    @id @unique @default(cuid())
+  code       String    @unique
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+  disabledAt DateTime? @map("disabled_at")
+
+  Customers Customer[]
+  MetaApps  MetaApp[]
+  Chats     Chat[]
+  Users     User[]
+
+  @@index([id])
+  @@index([code])
+  @@map("business")
+}
+
+model MetaApp {
+  id          String @id @unique @default(cuid())
+  appId       String @unique @map("app_id")
+  accessToken String @map("access_token")
+
+  Business   Business @relation(fields: [businessId], references: [id])
+  businessId String   @map("business_id")
+
+  MetaWhatsapps MetaWhatsapp[]
+
+  @@index([appId])
+  @@index([appId, businessId])
+  @@map("meta_app")
+}
+
+model MetaWhatsapp {
+  id            String @id @unique @default(cuid())
+  numberPhone   String @unique @map("number_phone")
+  numberPhoneId String @unique @map("number_phone_id")
+  waBusinessId  String @unique @map("wa_business_id")
+
+  MetaApp   MetaApp @relation(fields: [metaAppId], references: [id])
+  metaAppId String  @map("meta_app_id")
+
+  @@index([numberPhone])
+  @@index([numberPhoneId])
+  @@index([waBusinessId])
+  @@map("meta_whatsapp")
+}
+
+model User {
+  id         String    @id @unique @default(cuid())
+  code       String
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+  disabledAt DateTime? @map("disabled_at")
+
+  Business   Business @relation(fields: [businessId], references: [id])
+  businessId String   @map("business_id")
+
+  Chats    Chat[]
+  Messages Message[]
+
+  @@unique([code, businessId])
+  @@index([code, businessId])
+  @@map("users")
+}
+
+model Customer {
+  id         String    @id @unique @default(cuid())
+  code       String
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+  disabledAt DateTime? @map("disabled_at")
+
+  Business   Business @relation(fields: [businessId], references: [id])
+  businessId String   @map("business_id")
+
+  SocialMedia CustomerSocialMedia[]
+  Chats       Chat[]
+
+  Messages Message[]
+
+  @@unique([code, businessId])
+  @@index([id])
+  @@index([code, businessId])
+  @@map("customers")
+}
+
+model CustomerSocialMedia {
+  id       String                @id @unique @default(cuid())
+  type     ClientSocialMediaType
+  username String
+  socialId String                @unique @map("social_id")
+
+  Customer   Customer @relation(fields: [customerId], references: [id])
+  customerId String   @map("customer_id")
+
+  @@index([id])
+  @@index([username])
+  @@index([socialId])
+  @@map("customer_social_media")
+}
+
+model Chat {
+  id        String    @id @unique @default(cuid())
+  code      String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  closedAt  DateTime?
+  type      ChatType
+
+  Business   Business @relation(fields: [businessId], references: [id])
+  businessId String   @map("business_id")
+
+  Customer   Customer @relation(fields: [customerId], references: [id])
+  customerId String   @map("customer_id")
+
+  Users  User?   @relation(fields: [userId], references: [id])
+  userId String? @map("user_id")
+
+  Messages Message[]
+
+  @@unique([code, businessId])
+  @@map("chats")
+}
+
+model Message {
+  id            String      @id @unique @default(cuid())
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  deletedAt     DateTime?   @map("deleted_at")
+  type          MessageType
+  body          Json
+  reactions     String[]
+  integrationId String      @unique
+
+  Chat   Chat   @relation(fields: [chatId], references: [id])
+  chatId String @map("chat_id")
+
+  Customer   Customer? @relation(fields: [customerId], references: [id])
+  customerId String?   @map("customer_id")
+
+  User   User?   @relation(fields: [userId], references: [id])
+  userId String? @map("user_id")
+
+  Status MessageStatus[]
+
+  @@index([chatId])
+  @@map("messages")
+}
+
+model MessageStatus {
+  id        String            @id @unique @default(cuid())
+  createdAt DateTime          @default(now()) @map("created_at")
+  status    MessageStatusType
+
+  Message   Message @relation(fields: [messageId], references: [id])
+  messageId String  @map("message_id")
+
+  @@map("message_status")
+}

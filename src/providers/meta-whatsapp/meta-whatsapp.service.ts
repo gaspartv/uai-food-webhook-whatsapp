@@ -5,9 +5,12 @@ import {
   Logger,
 } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
+import { createId } from "@paralleldrive/cuid2";
 import { AxiosService } from "src/providers/axios/axios.service";
 import { Converter } from "src/utils/converter.util";
 import { env } from "../../configs/env";
+import { PrismaService } from "../prisma/prisma.service";
+import { RedisService } from "../redis/redis.service";
 import { MetaWhatsappDto } from "./dtos/meta-whatsapp.received.dto";
 
 @Injectable()
@@ -18,11 +21,13 @@ export class MetaWhatsappService {
     @Inject(env.RABBITMQ_NAME_STATUS)
     private readonly rabbitMQToStatus: ClientProxy,
     private readonly axiosService: AxiosService,
+    private readonly redis: RedisService,
+    private readonly prisma: PrismaService,
   ) {}
 
   handlerValidation(mode: string, verifyToken: string, challenge: any) {
     const subscribeMode = mode === "subscribe";
-    const tokenMatch = verifyToken === env.WHATSAPP_VERIFY_TOKEN;
+    const tokenMatch = verifyToken === env.META_WHATSAPP_VERIFY_TOKEN;
 
     if (subscribeMode && tokenMatch) return challenge;
 
@@ -31,21 +36,24 @@ export class MetaWhatsappService {
   }
 
   async handlerWhatsapp(dto: MetaWhatsappDto) {
-    const businessAlreadyExists = true; // TODO: Validar se a empresa tem cadastro no sistema no banco de dados.
+    const converteDto = Converter.waToBodyDefault(dto);
+
+    const businessCache = await this.redis.get(
+      `business:${converteDto.business.id}`,
+    );
+    const businessAlreadyExists = await this.prisma.metaWhatsapp.findFirst({
+      where: {},
+    });
     // USAR REDIS PARA ARMAZENAR AS EMPRESAS PARA NÃO PRECISAR BUSCAR NO BANCO DE DADOS TODA HORA.
     if (!businessAlreadyExists) return;
 
-    const converteDto = Converter.waToBodyDefault(dto);
-
-    console.log("converteDto", converteDto);
-
     if (converteDto.statuses !== undefined) {
-      // Enviar para micro-serviço que trata/atualiza os status.
-      this.rabbitMQToStatus.emit(env.RABBITMQ_QUEUE_STATUS, {
+      const payload = {
         provider: converteDto.provider,
         business: converteDto.business,
         statuses: converteDto.statuses,
-      });
+      };
+      this.redis.set("wa-update-status" + createId(), JSON.stringify(payload));
       return;
     }
 
@@ -72,8 +80,9 @@ export class MetaWhatsappService {
       message: converteDto.message,
     });
 
-    const url =
-      "https://graph.facebook.com/v20.0/279265205263818/messages?access_token=EAAIU7bqLvE4BO6WPCFhNheVqlOgaS0ZBPmLD2NyvJqVv4eLvOJggXzVEwBXKUHC3arWr3ZBKYi3Ky7F6Dh4WylhrQdd6DKpTz3XfwKSlyr5PZCSvZBuZAxOZC52q2PKaZBejb8JbGDZB1s9o1XFcT4rr6mEZB4KMefYf6kbUBMhgWZA3FOPfEWaGmnmZCFzHckjvanP7aJiO3cHJ3CIPalpHTsZC0bg3wCBhJPkM7ZBC4eiiwgYUZD";
+    const businessId = "";
+    const accessToken =
+      "EAAIU7bqLvE4BO6WPCFhNheVqlOgaS0ZBPmLD2NyvJqVv4eLvOJggXzVEwBXKUHC3arWr3ZBKYi3Ky7F6Dh4WylhrQdd6DKpTz3XfwKSlyr5PZCSvZBuZAxOZC52q2PKaZBejb8JbGDZB1s9o1XFcT4rr6mEZB4KMefYf6kbUBMhgWZA3FOPfEWaGmnmZCFzHckjvanP7aJiO3cHJ3CIPalpHTsZC0bg3wCBhJPkM7ZBC4eiiwgYUZD";
     const data = {
       messaging_product: converteDto.provider,
       to: converteDto.contact.id,
@@ -82,6 +91,11 @@ export class MetaWhatsappService {
         body: "Teste 2",
       },
     };
+    await this.sendMessage(businessId, accessToken, data);
+  }
+
+  async sendMessage(businessId: string, accessToken: string, data: any) {
+    const url = `${env.META_URL}/${businessId}/messages?access_token=${accessToken}`;
     await this.axiosService.post(url, data);
   }
 }
